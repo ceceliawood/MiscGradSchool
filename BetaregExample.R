@@ -25,7 +25,10 @@ frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool
          'RV1' = 'Fh_pct',
          'RV2' = 'Gt_pct',
          'RV3' = 'Lp_pct',
-         'RV4' = 'Mt_pct')
+         'RV4' = 'Mt_pct') %>%
+select(contains('V'))
+
+plot(frame1)
 
 # EVs are the experimental conditions that made a mixed sample
 # They are a mix of continuous variables (Time, pH, iron ratios) and
