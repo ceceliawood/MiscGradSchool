@@ -12,7 +12,7 @@ library(generics)
 
 # pull in data from github
 
-frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/refs/heads/main/DataMining.csv') %>% 
+frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/refs/heads/main/Beta%20Regression/DataMining.csv') %>% 
   mutate(Gt_pct = Gt_pct/100, # turn percents into decimals
          Lp_pct = Lp_pct/100,
          Fh_pct = Fh_pct/100,
