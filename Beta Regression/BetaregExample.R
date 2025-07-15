@@ -12,7 +12,7 @@ library(generics)
 
 # pull in data from github
 
-frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/refs/heads/main/Beta%20Regression/DataMining.csv') %>% 
+frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/refs/heads/main/Beta%20Regression/Data%20Mining_end.csv') %>% 
   mutate(Gt_pct = Gt_pct/100, # turn percents into decimals
          Lp_pct = Lp_pct/100,
          Fh_pct = Fh_pct/100,
@@ -26,7 +26,10 @@ frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool
          'RV2' = 'Gt_pct',
          'RV3' = 'Lp_pct',
          'RV4' = 'Mt_pct') %>%
-select(contains('V'))
+  select(contains('V')) %>% 
+  #slight transformations to meet assumptions of beta reg
+  mutate(across(contains('RV'), ~if_else(. == 0, 0.0001, .))) %>% 
+  mutate(across(contains('RV'), ~if_else(. == 1, 0.9999, .)))
 
 plot(frame1)
 
@@ -43,49 +46,13 @@ RV2_logit <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 | EV5, data = frame1,
 summary(RV2_logit)
 plot(RV2_logit)
 
-beta_mu_intercept <- RV2_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "(Intercept)") %>% 
-  pull(estimate)
+
+RV2_logit_table <- RV2_logit %>% 
+  tidy()
+
 
 beta_mu_EV1MES <- RV2_logit %>% 
   tidy() %>% 
   filter(component == "mu", term == "EV1MES") %>% 
   pull(estimate)
 
-beta_mu_EV1PIPES <- RV2_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "EV1PIPES") %>% 
-  pull(estimate)
-
-beta_mu_EV2sulfate <- RV2_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "EV2sulfate") %>% 
-  pull(estimate)
-
-beta_mu_EV3 <- Gt_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "EV3") %>% 
-  pull(estimate)
-
-beta_mu_EV4 <- Gt_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "EV4") %>% 
-  pull(estimate)
-
-beta_mu_EV5 <- Gt_logit %>% 
-  tidy() %>% 
-  filter(component == "mu", term == "EV5") %>% 
-  pull(estimate)
-
-RV2_logit_table <- tidy(RV2_logit) %>% 
-  mutate(Probability = c(plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV1MES) - plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV1PIPES) - plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV2sulfate) - plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV3) - plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV4) - plogis(beta_mu_intercept),
-                         plogis(beta_mu_intercept + beta_mu_EV5) - plogis(beta_mu_intercept),
-                         NA,
-                         NA,
-                         NA))
