@@ -65,3 +65,12 @@ MOPS,chloride,,FeCl2,7.0,0,0,1.01,5,4.9505,carboxylic,0.05,XRD,19,8,10,63,336
 MOPS,chloride,,FeCl2,7.0,0,0,1.01,5,4.9505,carboxylic,0.7,XRD,43,1,30,26,336
 MOPS,chloride,,FeCl2,7.0,0,0,1.01,5,4.9505,carboxylic,1.2,XRD,86,10,4,0,336
 MOPS,chloride,,FeCl2,7.0,0,0,1.01,5,4.9505,carboxylic,2.5,XRD,96,4,0,0,336
+MOPS,chloride,,FeCl2,7.0,0,0,1.43,0.3,0.2098,,0,XRD,34,66,0,0,672
+MOPS,chloride,,FeCl2,7.0,0.05,0,1.43,0.3,0.2098,,0,XRD,56,0,44,0,672
+MOPS,chloride,,FeCl2,7.0,0.18,0,1.43,0.3,0.2098,,0,XRD,100,0,0,0,672
+MOPS,chloride,,FeCl2,7.0,0,0,1.43,3,2.0979,,0,XRD,35,19,19,28,672
+MOPS,chloride,,FeCl2,7.0,0.05,0,1.43,3,2.0979,,0,XRD,49,4,47,0,672
+MOPS,chloride,,FeCl2,7.0,0.18,0,1.43,3,2.0979,,0,XRD,93,3,4,0,672
+MOPS,sulfate,,FeSO4,7.2,0,0,0.5,0.1,0.2000,,0,EXAFS,5,77,18,0,53
+MOPS,sulfate,,FeSO4,7.2,0,0,0.5,1,2.0000,,0,EXAFS,0,100,0,0,24
+,sulfate,,FeSO4,7.2,0,0,0.5,1,2.0000,,0,EXAFS,13,27,60,0,60
