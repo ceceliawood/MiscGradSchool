@@ -1,4 +1,4 @@
-Buffer1,CounterIon1,CounterIon2,Fe2_source1,pH,Si_mM,Al_molpercent,Fh_gL,Fe2_mM,Fe2Fh_mMgL,OC_type,CFe_molmol,IDMethod,Fh_pct,Gt_pct,Lp_pct,Mt_pct,Time_hr
+Buffer1,CounterIon1,CounterIon2,Fe2_source1,pH,SiFe_molmol,Al_molpercent,Fh_gL,Fe2_mM,Fe2Fh_mMgL,OC_type,CFe_molmol,IDMethod,Fh_pct,Gt_pct,Lp_pct,Mt_pct,Time_hr
 PIPES,chloride,,FeCl2,7.2,0,0,0.3,0.2,0.67,,0,XAS,6,8,86,0,132
 PIPES,chloride,,FeCl2,7.2,0,0,0.3,2,6.7,,0,XAS,21,13,27,39,132
 PIPES,sulfate,,FeSO4,7.2,0,0,0.3,0.2,0.67,,0,XAS,7,46,47,0,132
