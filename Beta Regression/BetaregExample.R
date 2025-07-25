@@ -10,10 +10,13 @@ library(betareg)
 library(broom)
 library(generics)
 library(lmtest)
+library(tinytable)
+library(parameters)
+library(insight)
 
 # pull in data from github
 
-frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/refs/heads/main/Beta%20Regression/Data%20Mining_end.csv') %>% 
+frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool/637e604802d3910581a99e7f69a91c39eaafc347/Beta%20Regression/Data%20Mining_end.csv') %>% 
   mutate(Gt_pct = Gt_pct/100, # turn percents into decimals
          Lp_pct = Lp_pct/100,
          Fh_pct = Fh_pct/100,
@@ -25,6 +28,7 @@ frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool
          'EV5' = 'Time_hr',
          'EV6' = 'CFe_molmol',
          'EV7' = 'Al_molpercent',
+         'EV8' = 'SiFe_molmol',
          'RV1' = 'Fh_pct',
          'RV2' = 'Gt_pct',
          'RV3' = 'Lp_pct',
@@ -44,40 +48,55 @@ plot(frame1)
 # If RV1 = 0.75, then 75% of the mixed sample is phase 1
 # Thus, RVs range from 0-1 and include both 0 and 1
 
-RV2_logit <- betareg(RV2 ~ EV2 + EV3 + EV4 + EV5 + EV6 + EV6, data = frame1,
+RV2_logit <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8, data = frame1,
                     link = 'logit')
 summary(RV2_logit)
 plot(RV2_logit)
 
 
 
-RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7, data = frame1,
+RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8 + EV4*EV5, data = frame1,
                      link = 'logit')
 summary(RV2_logit2)
 plot(RV2_logit2)
 
+model_parameters(RV2_logit2) |> 
+  tt(digits = 2) |> 
+  format_tt(j = "p", fn = scales::label_pvalue())
+
+model_parameters(RV2_logit2, exponentiate = TRUE) |> 
+  tt(digits = 2) |> 
+  format_tt(j = "p", fn = scales::label_pvalue())
 
 RV2_logit_table2 <- RV2_logit2 %>% 
   tidy() %>% 
-  mutate(plogis_est = c(plogis(estimate[1]),
-                        plogis(estimate[1] + estimate[2]),
-                        plogis(estimate[1] + estimate[3]),
-                        plogis(estimate[1] + estimate[4]),
-                        plogis(estimate[1] + estimate[5]),
-                        plogis(estimate[1] + estimate[6]),
-                        plogis(estimate[1] + estimate[7]),
-                        plogis(estimate[1] + estimate[8]),
-                        plogis(estimate[1] + estimate[9]),
-                        plogis(estimate[1] + estimate[10])))
+  mutate(Odds = signif(exp(estimate), digits = 3),
+         p.value = signif(p.value, digits = 3),
+         significant = if_else(p.value < 0.05, 'Y', 'N'))
 
 
   
        
-lrtest(RV1_logit, RV1_logit2)
+lrtest(RV2_logit, RV2_logit2)
 
 
-RV1_logit <- betareg(RV1 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7, data = frame1,
+
+
+
+RV1_logit1 <- betareg(RV1 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8 + EV4*EV5, data = frame1,
                       link = 'logit')
-summary(RV1_logit)
-plot(RV1_logit)
+summary(RV1_logit1)
+plot(RV1_logit1)
+
+
+RV3_logit1 <- betareg(RV3 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8 + EV4*EV5, data = frame1,
+                      link = 'logit')
+summary(RV3_logit1)
+plot(RV3_logit1)
+
+
+RV4_logit1 <- betareg(RV4 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8 + EV4*EV5, data = frame1,
+                      link = 'logit')
+summary(RV4_logit1)
+plot(RV4_logit1)
 
