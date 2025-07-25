@@ -25,7 +25,7 @@ frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool
          'EV2' = 'CounterIon1',    # EV = explanatory variable
          'EV3' = 'pH',             # RV = response variable
          'EV4' = 'Fe2Fh_mMgL',
-         'EV5' = 'Time_hr',
+         'EV5' = 'Time_hr',        #note that in Buffer1, 'A' = unbuffered
          'EV6' = 'CFe_molmol',
          'EV7' = 'Al_molpercent',
          'EV8' = 'SiFe_molmol',
@@ -48,14 +48,14 @@ plot(frame1)
 # If RV1 = 0.75, then 75% of the mixed sample is phase 1
 # Thus, RVs range from 0-1 and include both 0 and 1
 
-RV2_logit <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8, data = frame1,
+RV2_logit <- betareg(RV2 ~ EV1 + EV2 + EV4 + EV5 + EV6 + EV7 + EV8, data = frame1,
                     link = 'logit')
 summary(RV2_logit)
 plot(RV2_logit)
 
 
 
-RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + EV3 + EV4 + EV5 + EV6 + EV7 + EV8 + EV4*EV5, data = frame1,
+RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + EV4 + log(EV5) + EV6 + EV7 + EV8, data = frame1,
                      link = 'logit')
 summary(RV2_logit2)
 plot(RV2_logit2)
