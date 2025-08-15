@@ -36,9 +36,18 @@ frame1 <- read_csv('https://raw.githubusercontent.com/ceceliawood/MiscGradSchool
   select(contains('V')) %>% 
   #slight transformations to meet assumptions of beta reg
   mutate(across(contains('RV'), ~if_else(. == 0, 0.0001, .))) %>% 
-  mutate(across(contains('RV'), ~if_else(. == 1, 0.9999, .)))
+  mutate(across(contains('RV'), ~if_else(. == 1, 0.9999, .))) %>%
+  mutate(EV6 = if_else(EV6 == 0, 0.001, EV6)) %>% 
+  mutate(EV7 = if_else(EV7 == 0, 0.001, EV7)) %>% 
+  mutate(EV8 = if_else(EV8 == 0, 0.001, EV8))
 
 plot(frame1)
+
+frame1_filt <- frame1 %>% 
+  filter(EV5 < 2000) #testing getting rid of highest time point
+
+frame2 <- frame1 %>% 
+  filter(EV1 != 'A')
 
 # EVs are the experimental conditions that made a mixed sample
 # They are a mix of continuous variables (Time, pH, iron ratios) and
@@ -48,25 +57,18 @@ plot(frame1)
 # If RV1 = 0.75, then 75% of the mixed sample is phase 1
 # Thus, RVs range from 0-1 and include both 0 and 1
 
-RV2_logit <- betareg(RV2 ~ EV1 + EV2 + EV4 + EV5 + EV6 + EV7 + EV8, data = frame1,
+RV2_logit <- betareg(RV2 ~ EV1 + EV2 + log(EV4) + log(EV5) + log(EV6) + log(EV7) + EV8 | EV5, data = frame1,
                     link = 'logit')
 summary(RV2_logit)
 plot(RV2_logit)
 
 
 
-RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + EV4 + log(EV5) + EV6 + EV7 + EV8, data = frame1,
+RV2_logit2 <- betareg(RV2 ~ EV1 + EV2 + log(EV4) + log(EV5) + log(EV6) + log(EV7) + EV8 | log(EV5), data = frame1,
                      link = 'logit')
 summary(RV2_logit2)
 plot(RV2_logit2)
 
-model_parameters(RV2_logit2) |> 
-  tt(digits = 2) |> 
-  format_tt(j = "p", fn = scales::label_pvalue())
-
-model_parameters(RV2_logit2, exponentiate = TRUE) |> 
-  tt(digits = 2) |> 
-  format_tt(j = "p", fn = scales::label_pvalue())
 
 RV2_logit_table2 <- RV2_logit2 %>% 
   tidy() %>% 
@@ -77,7 +79,7 @@ RV2_logit_table2 <- RV2_logit2 %>%
 
   
        
-lrtest(RV2_logit, RV2_logit2)
+lrtest(RV2_logit2, RV2_logit)
 
 
 
