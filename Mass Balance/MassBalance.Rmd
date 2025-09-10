@@ -1,0 +1,350 @@
+---
+title: "Mass Balance"
+author: "CEW"
+date: "2025-09-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+pacman::p_load(tidyverse, readxl, stringr, readr, glmnet, ISLR, lubridate, ggplot2, ggpubr, stats, gridExtra, graphics, gt)
+```
+
+```{r read in all files}
+metals_file <- read_csv('https://pasta.lternet.edu/package/data/eml/edi/455/8/9c8c61b003923f4f03ebfe55cea8bbfd')
+
+fluxes <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/1474/8/7cc135d14d92911eb7e8f6ceb096a29d")
+
+bathy <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/1254/1/f7fa2a06e1229ee75ea39eb586577184")
+```
+
+
+```{r set up metals}
+metals <- metals_file %>% 
+  filter(metals_file$DateTime >= as.Date('2018-01-01'),
+         Site == 50, Reservoir == 'FCR' | Reservoir == 'BVR') %>% 
+  select(Reservoir, Site, DateTime, Depth_m, TFe_mgL, SFe_mgL, TMn_mgL, SMn_mgL,
+         Flag_TFe_mgL, Flag_TMn_mgL, Flag_SFe_mgL, Flag_SMn_mgL) %>%
+  filter(Flag_TFe_mgL != 8 & Flag_SFe_mgL != 8 & Flag_TFe_mgL != 68 & Flag_SFe_mgL != 68,
+         Flag_TMn_mgL != 8 & Flag_SMn_mgL != 8 & Flag_TMn_mgL != 68 & Flag_SMn_mgL != 68) %>% 
+  mutate(FeDiff = TFe_mgL - SFe_mgL,
+         MnDiff = TMn_mgL - SMn_mgL,
+         STFe = SFe_mgL/TFe_mgL,
+         STMn = SMn_mgL/TMn_mgL,
+         Date = date(DateTime),
+         Layer = NA,
+         Layer = ifelse(Reservoir == 'FCR' & Depth_m <= 4, 'Epilimnion', Layer),
+         Layer = ifelse(Reservoir == 'FCR' & Depth_m >= 4, 'Hypolimnion', Layer),
+         Layer = ifelse(Reservoir == 'BVR' & Depth_m <= 5, 'Epilimnion', Layer),
+         Layer = ifelse(Reservoir == 'BVR' & Depth_m >= 5, 'Hypolimnion', Layer),
+         Year = year(DateTime)) %>% 
+  group_by(Reservoir, Site, Date, Layer) %>% 
+  mutate(AvgSTFe = mean(STFe, na.rm = TRUE),
+         AvgSTMn = mean(STMn, na.rm = TRUE)) %>% 
+  filter(FeDiff >= -0.02,
+         MnDiff >= -0.06)
+```
+
+
+## Figure S5. Mn Mass Balance
+```{r mass balance calcs}
+f_bathy <- bathy %>% 
+  filter(Reservoir == 'FCR')
+#assume that depths below 6.2m are in the hypolimnion
+
+f_hyp_SA <- f_bathy %>% 
+  filter(Depth_m == 8)
+#surface area of the reservoir at 6.2m:
+print(f_hyp_SA$SA_m2)
+
+
+f_6.2_8_bathy <- f_bathy %>% 
+  filter(between(Depth_m, 6.2, 7.9)) %>% 
+  summarise(LayerVol_L = sum(Volume_layer_L))
+
+f_8_9_bathy <- f_bathy %>% 
+  filter(between(Depth_m, 8, 8.9)) %>% 
+  summarise(LayerVol_L = sum(Volume_layer_L))
+
+f_9_bathy <- f_bathy %>% 
+  filter(Depth_m >= 9) %>% 
+  summarise(LayerVol_L = sum(Volume_layer_L))
+
+
+SedTrapMass <- fluxes %>% 
+  select(Reservoir, Date, Depth_m, TFe_g, TMn_g, TFeFlux_gm2d, TMnFlux_gm2d, Duration_days) %>% 
+  na.omit() %>%
+  mutate(Year = year(Date)) %>% 
+  filter(Depth_m >= 8,
+         Reservoir == 'FCR') %>% 
+  group_by(Reservoir, Date, Depth_m, Year) %>%
+  summarise(AvgTFe_g = mean(TFe_g, na.rm = TRUE),
+            AvgTMn_g = mean(TMn_g, na.rm = TRUE),
+            AvgTMnFlux_gm2d = mean(TMnFlux_gm2d, na.rm = TRUE),
+            AvgTFeFlux_gm2d = mean(TFeFlux_gm2d, na.rm = TRUE),
+            Duration_days = mean(Duration_days)) %>% 
+  ungroup() %>% 
+  mutate(AvgTMn_gm2 = AvgTMnFlux_gm2d*Duration_days,
+         SedimentedMn_g = AvgTMn_gm2*1787, #SA of hypolimnion
+         Date1 = Date - Duration_days,
+         AvgTMn_gd = AvgTMnFlux_gm2d*1787,
+         AvgTFe_gd = AvgTFeFlux_gm2d*1787) 
+
+HypoMass <- metals %>%
+  ungroup() %>% #slightly changing dates to match metals samples with sed trap samples
+  mutate(Date = if_else(Date == as.Date('2020-08-10'), 
+                        as.Date('2020-08-07'), Date),
+         Date = if_else(Date == as.Date('2020-10-06'), 
+                        as.Date('2020-10-05'), Date),
+         Date = if_else(Date == as.Date('2021-07-07'), 
+                        as.Date('2021-07-09'), Date),
+         Date = if_else(Date == as.Date('2023-09-26'), 
+                        as.Date('2023-09-25'), Date),
+         Date = if_else(Date == as.Date('2023-11-14'), 
+                        as.Date('2023-11-17'), Date)) %>% 
+  filter(Reservoir == 'FCR',
+         Depth_m >= 6.2,
+         Date %in% SedTrapMass$Date | Date %in% SedTrapMass$Date1) %>%
+  select(Reservoir, Date, Depth_m, TFe_mgL, TMn_mgL, SFe_mgL, SMn_mgL, Year) %>% 
+  mutate(TFe_g = NA,
+         TFe_g = if_else(Depth_m == 6.2, 10429717*TFe_mgL/1000, TFe_g),
+         TFe_g = if_else(Depth_m == 8, 858425*TFe_mgL/1000, TFe_g),
+         TFe_g = if_else(Depth_m == 9, 9358*TFe_mgL/1000, TFe_g),
+         TMn_g = NA,
+         TMn_g = if_else(Depth_m == 6.2, 10429717*TMn_mgL/1000, TMn_g),
+         TMn_g = if_else(Depth_m == 8, 858425*TMn_mgL/1000, TMn_g),
+         TMn_g = if_else(Depth_m == 9, 9358*TMn_mgL/1000, TMn_g),
+         SFe_g = NA,
+         SFe_g = if_else(Depth_m == 6.2, 10429717*SFe_mgL/1000, SFe_g),
+         SFe_g = if_else(Depth_m == 8, 858425*SFe_mgL/1000, SFe_g),
+         SFe_g = if_else(Depth_m == 9, 9358*SFe_mgL/1000, SFe_g),
+         SMn_g = NA,
+         SMn_g = if_else(Depth_m == 6.2, 10429717*SMn_mgL/1000, SMn_g),
+         SMn_g = if_else(Depth_m == 8, 858425*SMn_mgL/1000, SMn_g),
+         SMn_g = if_else(Depth_m == 9, 9358*SMn_mgL/1000, SMn_g)) %>% 
+  group_by(Reservoir, Date, Year) %>% 
+  summarise(SumTFe_g = sum(TFe_g, na.rm = TRUE),
+            SumTMn_g = sum(TMn_g, na.rm = TRUE),
+            SumSFe_g = sum(SFe_g, na.rm = TRUE),
+            SumSMn_g = sum(SMn_g, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  group_by(Year) %>% 
+  mutate(DeltaTFe_g = SumTFe_g - lag(SumTFe_g, n = 1),
+         DeltaTMn_g = SumTMn_g - lag(SumTMn_g, n = 1),
+         DeltaSFe_g = SumSFe_g - lag(SumSFe_g, n = 1),
+         DeltaSMn_g = SumSMn_g - lag(SumSMn_g, n = 1),
+         Duration_days = as.numeric(Date - lag(Date, n = 1)),
+         DeltaTFe_gd = DeltaTFe_g/Duration_days,
+         DeltaTMn_gd = DeltaTMn_g/Duration_days,
+         DeltaSFe_gd = DeltaSFe_g/Duration_days,
+         DeltaSMn_gd = DeltaSMn_g/Duration_days) %>% 
+  na.omit() %>% 
+  select(-c(Duration_days))
+
+
+MassRates <- SedTrapMass %>% 
+  rename('SedTrapTMn_gd' = 'AvgTMn_gd',
+         'SedTrapTFe_gd' = 'AvgTFe_gd') %>% 
+  full_join(HypoMass) %>% 
+  select(Reservoir, Year, Date, Duration_days, DeltaTFe_gd, DeltaTMn_gd,
+         DeltaSFe_gd, DeltaSMn_gd, SedTrapTMn_gd, SedTrapTFe_gd, DeltaTFe_g,
+         DeltaTMn_g, DeltaSFe_g, DeltaSMn_g, SedimentedMn_g) %>% 
+  mutate(TFeSedTrapDif_gd = DeltaTFe_gd - SedTrapTFe_gd,
+         SFeSedTrapDif_gd = DeltaSFe_gd - SedTrapTFe_gd,
+         TMnSedTrapDif_gd = DeltaTMn_gd - SedTrapTMn_gd,
+         SMnSedTrapDif_gd = DeltaSMn_gd - SedTrapTMn_gd,
+         TMnSedTrapDif_g = DeltaTMn_g - SedimentedMn_g,
+         SMnSedTrapDif_g = DeltaSMn_g - SedimentedMn_g)
+
+MassRateDifAvg <- MassRates %>% 
+  group_by(Year) %>% 
+  summarise(AvgTFeSedTrapDif_gd = mean(TFeSedTrapDif_gd, na.rm = TRUE),
+            AvgSFeSedTrapDif_gd = mean(SFeSedTrapDif_gd, na.rm = TRUE),
+            AvgTMnSedTrapDif_gd = mean(TMnSedTrapDif_gd, na.rm = TRUE),
+            AvgSMnSedTrapDif_gd = mean(SMnSedTrapDif_gd, na.rm = TRUE),
+            AvgTMnSedTrapDif_g = mean(TMnSedTrapDif_g, na.rm = TRUE),
+            AvgSMnSedTrapDif_g = mean(SMnSedTrapDif_g, na.rm = TRUE))
+
+MassPlot1 <- HypoMass %>%
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) +
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  scale_y_continuous(name = 'Change in Mn Mass (g)') +
+  geom_line(aes(as.Date(Date), DeltaSMn_g), color = 'black') +
+  geom_point(aes(as.Date(Date), SedimentedMn_g), data = SedTrapMass, color = 'red')
+
+MassPlot2 <- MassRates %>%
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) +
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  scale_y_continuous(name = 'Hypo - Sed Trap Mn Mass (g)') +
+  geom_hline(yintercept = 0, linewidth = 0.5, color = 'black') +
+  geom_hline(aes(yintercept = AvgSMnSedTrapDif_g), data = MassRateDifAvg, color = 'gray40', linetype = 2, linewidth = 0.5) +
+  geom_point(aes(as.Date(Date), SMnSedTrapDif_g), color = 'gray40')
+  
+  
+MassPlots <- ggarrange(MassPlot1, MassPlot2, ncol = 1,
+                       heights = c(1.5,1), labels = c('A', 'B'))
+ggsave(MassPlots, file = 'MnMassPlots.png', path = myFilePath, height = 8, width = 6,
+       units = 'in')
+  
+
+
+MassRateDifAvg <- MassRates %>% 
+  group_by(Year) %>% 
+  summarise(AvgTFeSedTrapDif = mean(TFeSedTrapDif, na.rm = TRUE),
+            AvgSFeSedTrapDif = mean(SFeSedTrapDif, na.rm = TRUE),
+            AvgTMnSedTrapDif = mean(TMnSedTrapDif, na.rm = TRUE),
+            AvgSMnSedTrapDif = mean(SMnSedTrapDif, na.rm = TRUE))
+
+MnRatesPlot <- MassRates %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  scale_y_continuous(name = 'Rate of Change in Mn Mass (g/day)') +
+  geom_line(aes(as.Date(Date), DeltaSMn_gd), color = 'black') +
+  geom_point(aes(as.Date(Date), SedTrapTMn_gd), color = 'red')
+
+MnRatesPlot2 <- MassRates %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  scale_y_continuous(name = 'Hypo Rate - Sedimentation Rate (g/day)') +
+  #geom_line(aes(as.Date(Date), DeltaSMn_gd), color = 'white') +
+  geom_hline(yintercept = 0, color = 'black') +
+  geom_hline(aes(yintercept = AvgSMnSedTrapDif), data = MassRateDifAvg, color = 'gray40',
+             linetype = 2, linewidth = 0.5) +
+  geom_point(aes(as.Date(Date), SMnSedTrapDif), color = 'gray40')
+
+
+MnRateBal <- ggarrange(MnRatesPlot, MnRatesPlot2, ncol = 1,
+                       heights = c(2,1), labels = c('A', 'B'))
+#################
+
+
+SedTrapMass1 <- fluxes %>% 
+  select(Reservoir, Date, Depth_m, TFe_g, TMn_g, TFeFlux_gm2d, TMnFlux_gm2d, Duration_days) %>% 
+  na.omit() %>%
+  mutate(Year = year(Date)) %>% 
+  filter(Depth_m >= 8,
+         Reservoir == 'FCR') %>% 
+  group_by(Reservoir, Date, Depth_m, Year) %>%
+  summarise(AvgTFe_g = mean(TFe_g, na.rm = TRUE),
+            AvgTMn_g = mean(TMn_g, na.rm = TRUE),
+            AvgTMnFlux_gm2d = mean(TMnFlux_gm2d, na.rm = TRUE),
+            AvgTFeFlux_gm2d = mean(TFeFlux_gm2d, na.rm = TRUE),
+            Duration_days = mean(Duration_days)) %>% 
+  ungroup() %>% 
+  mutate(AvgTMn_gm2 = AvgTMnFlux_gm2d*Duration_days,
+         SedimentedMn_g = AvgTMn_gm2*1787, #SA of hypolimnion
+         Date1 = Date - Duration_days,
+         AvgTMn_gd = AvgTMnFlux_gm2d*1787,
+         AvgTFe_gd = AvgTFeFlux_gm2d*1787) 
+
+HypoMass1 <- metals %>%
+  ungroup() %>%
+  filter(Reservoir == 'FCR',
+         Depth_m >= 6.2) %>%
+  select(Reservoir, Date, Depth_m, TFe_mgL, TMn_mgL, SFe_mgL, SMn_mgL, Year) %>% 
+  mutate(TFe_g = NA,
+         TFe_g = if_else(Depth_m == 6.2, 10429717*TFe_mgL/1000, TFe_g),
+         TFe_g = if_else(Depth_m == 8, 858425*TFe_mgL/1000, TFe_g),
+         TFe_g = if_else(Depth_m == 9, 9358*TFe_mgL/1000, TFe_g),
+         TMn_g = NA,
+         TMn_g = if_else(Depth_m == 6.2, 10429717*TMn_mgL/1000, TMn_g),
+         TMn_g = if_else(Depth_m == 8, 858425*TMn_mgL/1000, TMn_g),
+         TMn_g = if_else(Depth_m == 9, 9358*TMn_mgL/1000, TMn_g),
+         SFe_g = NA,
+         SFe_g = if_else(Depth_m == 6.2, 10429717*SFe_mgL/1000, SFe_g),
+         SFe_g = if_else(Depth_m == 8, 858425*SFe_mgL/1000, SFe_g),
+         SFe_g = if_else(Depth_m == 9, 9358*SFe_mgL/1000, SFe_g),
+         SMn_g = NA,
+         SMn_g = if_else(Depth_m == 6.2, 10429717*SMn_mgL/1000, SMn_g),
+         SMn_g = if_else(Depth_m == 8, 858425*SMn_mgL/1000, SMn_g),
+         SMn_g = if_else(Depth_m == 9, 9358*SMn_mgL/1000, SMn_g)) %>% 
+  group_by(Reservoir, Date, Year) %>% 
+  summarise(SumTFe_g = sum(TFe_g, na.rm = TRUE),
+            SumTMn_g = sum(TMn_g, na.rm = TRUE),
+            SumSFe_g = sum(SFe_g, na.rm = TRUE),
+            SumSMn_g = sum(SMn_g, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  group_by(Year) %>% 
+  mutate(DeltaTFe_g = SumTFe_g - lag(SumTFe_g, n = 1),
+         DeltaTMn_g = SumTMn_g - lag(SumTMn_g, n = 1),
+         DeltaSFe_g = SumSFe_g - lag(SumSFe_g, n = 1),
+         DeltaSMn_g = SumSMn_g - lag(SumSMn_g, n = 1),
+         Duration_days = as.numeric(Date - lag(Date, n = 1)),
+         DeltaTFe_gd = DeltaTFe_g/Duration_days,
+         DeltaTMn_gd = DeltaTMn_g/Duration_days,
+         DeltaSFe_gd = DeltaSFe_g/Duration_days,
+         DeltaSMn_gd = DeltaSMn_g/Duration_days) %>% 
+  na.omit() %>% 
+  select(-c(Duration_days))
+
+MassRates1 <- SedTrapMass1 %>% 
+  rename('SedTrapTMn_gd' = 'AvgTMn_gd',
+         'SedTrapTFe_gd' = 'AvgTFe_gd') %>% 
+  full_join(HypoMass1) %>% 
+  select(Reservoir, Year, Date, Duration_days, DeltaTFe_gd, DeltaTMn_gd,
+         DeltaSFe_gd, DeltaSMn_gd, SedTrapTMn_gd, SedTrapTFe_gd) %>% 
+  mutate(TFeSedTrapDif = DeltaTFe_gd - SedTrapTFe_gd,
+         SFeSedTrapDif = DeltaSFe_gd - SedTrapTFe_gd,
+         TMnSedTrapDif = DeltaTMn_gd - SedTrapTMn_gd,
+         SMnSedTrapDif = DeltaSMn_gd - SedTrapTMn_gd,
+         TO = NA, #only want to plot data before turnover
+         TO = if_else(between(Date, as.Date('2018-01-01'), as.Date('2018-10-21')),
+                      'Strat', TO),
+         TO = if_else(between(Date, as.Date('2019-01-01'), as.Date('2019-10-24')),
+                      'Strat', TO),
+         TO = if_else(between(Date, as.Date('2020-01-01'), as.Date('2020-11-02')),
+                      'Strat', TO),
+         TO = if_else(between(Date, as.Date('2021-01-01'), as.Date('2021-11-03')),
+                      'Strat', TO),
+         TO = if_else(between(Date, as.Date('2022-01-01'), as.Date('2022-10-20')),
+                      'Strat', TO),
+         TO = if_else(between(Date, as.Date('2023-01-01'), as.Date('2023-11-02')),
+                      'Strat', TO)) %>% 
+  filter(TO == 'Strat')
+  
+
+MnRatesPlot1 <- MassRates1 %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  scale_y_continuous(name = 'Rate of Change in Mn Mass (g/day)') +
+  geom_line(aes(as.Date(Date), DeltaSMn_gd), color = 'black') +
+  geom_point(aes(as.Date(Date), SedTrapTMn_gd), color = 'red', size = 0.5)
+
+MnRatesPlot21 <- MassRates1 %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  #facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  #scale_x_date(date_labels = '%b', breaks = '3 months') +
+  geom_hline(yintercept = 0, color = 'black') +
+  scale_y_continuous(limits = c(-4000, 2000)) +
+  geom_boxplot(aes(as.factor(Year), SMnSedTrapDif), color = 'red')
+
+MnRatesPlot22 <- MassRates1 %>% 
+  ggplot() + theme_bw() + theme(panel.grid = element_blank()) + 
+  facet_grid(cols = vars(Year), scales = 'free', space = "free") +
+  scale_x_date(date_labels = '%b', breaks = '3 months') +
+  geom_hline(yintercept = 0, color = 'black') +
+  scale_y_continuous(limits = c(-3000, 1500),
+                     name = 'Hypo Rate - Sed Trap Rate') +
+  geom_point(aes(as.Date(Date), SMnSedTrapDif), color = 'gray40')
+
+
+
+
+
+MnMassBal <- ggarrange(MnRatesPlot1, MnRatesPlot22, ncol = 1,
+                       heights = c(2,1), labels = c('A', 'B'))
+
+
+
+
+```
+```{r Figure S5 Mn mass balance}
+MnMassBal
+ggsave(MnMassBal, file = 'MnMassBal.png', path = myFilePath, height = 8, width = 6, units = 'in')
+```
