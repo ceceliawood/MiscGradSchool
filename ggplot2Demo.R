@@ -6,7 +6,8 @@
 # our first step is to load in any libraries we'll need
 # this lets us use pre-made functions
 
-pacman::p_load(dplyr, tidyr, readxl, readr, ggplot2, ggpubr)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(dplyr, tidyr, readxl, readr, ggplot2, ggpubr, tidyverse)
 
 # the p_load function installs and calls all listed packages
 
