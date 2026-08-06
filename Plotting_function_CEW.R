@@ -27,7 +27,7 @@ all_plot<-function(
   
   # load packages
   if(!require("pacman")) install.packages("pacman")
-  pacman::p_load(colorRamps, RColorBrewer, plotly, patchwork)
+  pacman::p_load(colorRamps, RColorBrewer, plotly)
 
   # Make a list of the names of all the possible plots
   
@@ -449,51 +449,24 @@ if(length(qaqc_current$DateTime)>0){
   newlist <- alllist[!unlist(lapply(alllist, is.null))]
   
   
-  # Prints the plots where they should be, grouped into sets of three
-  # combined into one image.
+  # Prints the plots where they should be. 
   # Plotly would always print out of order. 
   # This is how I could get them working for each Variable
   
-  group_size <- 3
-  n_plots <- length(newlist)
   
-  # this will hold the combined 3-panel images (one entry per group)
-  grouped_list <- list()
-  
-  if(n_plots > 0){
+  for(j in 1:length(newlist)){
+    x <- newlist[[j]]
     
-    for(g in seq(1, n_plots, by = group_size)){
+    if (inherits(x, "plotly")) {
+      # print the html piece of the htmlwidgets
+      cat(renderTags(x)$html)
+    } else {
+      # print the ggplot graphs
+      print(x)
       
-      idx <- g:min(g + group_size - 1, n_plots)
-      grp <- newlist[idx]
-      
-      if(Use_plotly == TRUE){
-        # Combine the group into one interactive image. Any plain ggplot
-        # objects in the group (box, com_curr, com_all, daily_plot) get
-        # converted to plotly first so subplot() can combine everything.
-        grp_plotly <- lapply(grp, function(x){
-          if (inherits(x, "plotly")) x else ggplotly(x)
-        })
-        
-        combined <- subplot(grp_plotly, nrows = 1, titleX = TRUE,
-                            titleY = TRUE, margin = 0.05) %>%
-          as_widget()
-        
-        # print the html piece of the combined htmlwidget
-        cat(renderTags(combined)$html)
-        
-      }else{
-        # Combine the group into one static image
-        pacman::p_load(patchwork)
-        combined <- patchwork::wrap_plots(grp, ncol = length(grp))
-        print(combined)
-      }
-      
-      # store the combined group for the return value
-      grouped_list[[length(grouped_list) + 1]] <- combined
     }
   }
   
-  #par(mfrow = c(2,2))
-  return(grouped_list)
+  
+  return(newlist)
 }
