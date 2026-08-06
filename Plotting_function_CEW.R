@@ -467,5 +467,6 @@ if(length(qaqc_current$DateTime)>0){
     }
   }
   
+  par(mfrow = c(2,2))
   return(newlist)
 }
