@@ -27,7 +27,7 @@ all_plot<-function(
   
   # load packages
   if(!require("pacman")) install.packages("pacman")
-  pacman::p_load(colorRamps, RColorBrewer, plotly)
+  pacman::p_load(colorRamps, RColorBrewer, plotly, patchwork)
 
   # Make a list of the names of all the possible plots
   
@@ -449,24 +449,45 @@ if(length(qaqc_current$DateTime)>0){
   newlist <- alllist[!unlist(lapply(alllist, is.null))]
   
   
-  # Prints the plots where they should be. 
+  # Prints the plots where they should be, grouped into sets of three
+  # combined into one image.
   # Plotly would always print out of order. 
   # This is how I could get them working for each Variable
   
+  group_size <- 3
+  n_plots <- length(newlist)
   
-  for(j in 1:length(newlist)){
-    x <- newlist[[j]]
+  if(n_plots > 0){
     
-    if (inherits(x, "plotly")) {
-      # print the html piece of the htmlwidgets
-      cat(renderTags(x)$html)
-    } else {
-      # print the ggplot graphs
-      print(x)
+    for(g in seq(1, n_plots, by = group_size)){
       
+      idx <- g:min(g + group_size - 1, n_plots)
+      grp <- newlist[idx]
+      
+      if(Use_plotly == TRUE){
+        # Combine the group into one interactive image. Any plain ggplot
+        # objects in the group (box, com_curr, com_all, daily_plot) get
+        # converted to plotly first so subplot() can combine everything.
+        grp_plotly <- lapply(grp, function(x){
+          if (inherits(x, "plotly")) x else ggplotly(x)
+        })
+        
+        combined <- subplot(grp_plotly, nrows = 1, titleX = TRUE,
+                            titleY = TRUE, margin = 0.05) %>%
+          as_widget()
+        
+        # print the html piece of the combined htmlwidget
+        cat(renderTags(combined)$html)
+        
+      }else{
+        # Combine the group into one static image
+        pacman::p_load(patchwork)
+        combined <- patchwork::wrap_plots(grp, ncol = length(grp))
+        print(combined)
+      }
     }
   }
   
-  par(mfrow = c(2,2))
+  #par(mfrow = c(2,2))
   return(newlist)
 }
