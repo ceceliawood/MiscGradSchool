@@ -457,6 +457,9 @@ if(length(qaqc_current$DateTime)>0){
   group_size <- 3
   n_plots <- length(newlist)
   
+  # this will hold the combined 3-panel images (one entry per group)
+  grouped_list <- list()
+  
   if(n_plots > 0){
     
     for(g in seq(1, n_plots, by = group_size)){
