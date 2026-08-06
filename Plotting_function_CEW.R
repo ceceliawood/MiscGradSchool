@@ -485,9 +485,12 @@ if(length(qaqc_current$DateTime)>0){
         combined <- patchwork::wrap_plots(grp, ncol = length(grp))
         print(combined)
       }
+      
+      # store the combined group for the return value
+      grouped_list[[length(grouped_list) + 1]] <- combined
     }
   }
   
   #par(mfrow = c(2,2))
-  return(newlist)
+  return(grouped_list)
 }
